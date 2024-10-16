@@ -1,4 +1,11 @@
 from flask import Flask, render_template, request
+import pandas as pd
+from fuzzywuzzy import fuzz
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import spacy
+from spellchecker import SpellChecker
+import os
 
 app = Flask(__name__)
 
@@ -7,7 +14,6 @@ chat_history = []
 
 # Load spaCy's English model
 try:
-    import spacy
     nlp = spacy.load("en_core_web_sm")
 except OSError:
     import subprocess
@@ -16,15 +22,7 @@ except OSError:
     nlp = spacy.load("en_core_web_sm")
 
 # Initialize the spell checker
-from spellchecker import SpellChecker
 spell = SpellChecker()
-
-# Import necessary modules
-import pandas as pd
-from fuzzywuzzy import fuzz
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-import os
 
 FILE_PATH = "documents/scraped_data1.csv"
 
@@ -33,27 +31,32 @@ def split_into_sentences(text):
         text = str(text) if not pd.isna(text) else ""
     doc = nlp(text)
     sentences = [sent.text.strip() for sent in doc.sents]
+    print(f"Split Sentences: {sentences}")  # Debugging line
     return sentences
-
 
 def lemmatize_sentence(sentence):
     doc = nlp(sentence.lower())
     lemmatized_words = [token.lemma_ for token in doc if not token.is_punct and not token.is_space]
-    return ' '.join(lemmatized_words)
+    lemmatized_sentence = ' '.join(lemmatized_words)
+    print(f"Lemmatized Sentence: {lemmatized_sentence}")  # Debugging line
+    return lemmatized_sentence
 
 def correct_spelling(text):
     words = text.split()
-    corrected_words = [spell.correction(word) for word in words]
+    corrected_words = [spell.correction(word) or word for word in words]  # Use the original word if correction is None
+    print(f"Corrected Words: {corrected_words}")  # Debugging line
     return ' '.join(corrected_words)
 
 def find_relevant_sentences(query, sentences, lemmatized_sentences):
     lemmatized_query = lemmatize_sentence(query)
+    print(f"Lemmatized Query: {lemmatized_query}")  # Debugging line
 
     # Fuzzy matching
     scores = [fuzz.partial_ratio(lemmatized_query, ls) for ls in lemmatized_sentences]
     best_matches = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
+    print(f"Fuzzy Matching Scores: {scores}")  # Debugging line
 
-    threshold = 90
+    threshold = 80  # Adjusted threshold
     relevant_sentences = [sentences[i] for i, score in best_matches if score >= threshold]
     
     if not relevant_sentences:
@@ -61,17 +64,27 @@ def find_relevant_sentences(query, sentences, lemmatized_sentences):
         vectorizer = TfidfVectorizer().fit(sentences + [lemmatized_query])
         vectors = vectorizer.transform(sentences + [lemmatized_query])
         cosine_similarities = cosine_similarity(vectors[-1], vectors[:-1]).flatten()
-        
+        print(f"Cosine Similarities: {cosine_similarities}")  # Debugging line
+
         best_idx = cosine_similarities.argmax()
         if cosine_similarities[best_idx] > 0.15:
             relevant_sentences = [sentences[best_idx]]
     
     return relevant_sentences
 
+def load_data():
+    if os.path.exists(FILE_PATH):
+        df = pd.read_csv(FILE_PATH)
+        print(f"Data Loaded: {df.head()}")  # Debugging line
+        return df
+    else:
+        raise FileNotFoundError(f"File not found: {FILE_PATH}")
+
 def process_query(query):
     query = query.lower().strip()
-    
-    # Predefined responses for common questions
+    print(f"Query: {query}")  # Debugging line
+
+    # Predefined responses
     greetings = {
         "hi": "Hello! How can I assist you today?",
         "hello": "Hi there! How can I help you?",
@@ -82,33 +95,32 @@ def process_query(query):
         "what is your name": "I'm a chatbot designed to assist you with queries related to the Department of Justice."
     }
     
-    # Check for predefined responses
     if query in greetings:
         return greetings[query]
     
-    if os.path.exists(FILE_PATH):
-        df = pd.read_csv(FILE_PATH)
+    df = load_data()
+    
+    if 'text' not in df.columns:
+        return "The CSV file must contain a 'text' column."
 
-        if 'text' not in df.columns:
-            return "The CSV file must contain a 'text' column."
+    sentences = []
+    lemmatized_sentences = []
 
-        sentences = []
-        lemmatized_sentences = []
+    for doc in df['text']:
+        for sentence in split_into_sentences(doc):
+            sentences.append(sentence.strip())
+            lemmatized_sentences.append(lemmatize_sentence(sentence.strip()))
 
-        for doc in df['text']:
-            for sentence in split_into_sentences(doc):
-                sentences.append(sentence.strip())
-                lemmatized_sentences.append(lemmatize_sentence(sentence.strip()))
+    print(f"Sentences: {sentences}")  # Debugging line
+    print(f"Lemmatized Sentences: {lemmatized_sentences}")  # Debugging line
 
-        corrected_query = correct_spelling(query)
-        relevant_sentences = find_relevant_sentences(corrected_query, sentences, lemmatized_sentences)
+    corrected_query = correct_spelling(query)
+    relevant_sentences = find_relevant_sentences(corrected_query, sentences, lemmatized_sentences)
 
-        if relevant_sentences:
-            return " ".join(relevant_sentences)
-        else:
-            return "No relevant results found."
+    if relevant_sentences:
+        return " ".join(relevant_sentences)
     else:
-        return f"File not found: {FILE_PATH}"
+        return "No relevant results found."
 
 @app.route("/", methods=["GET", "POST"])
 def index():

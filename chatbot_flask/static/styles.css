@@ -62,7 +62,7 @@ button:hover {
 }
 
 .bot-msg {
-    background-color: #f8e0d7;;
+    background-color: #f8e0d7;
     color: #155724;
     align-self: flex-start;  /* Align bot messages to the left */
     margin-bottom: 10px;
@@ -80,6 +80,7 @@ form {
     display: flex;
     align-items: center;
 }
+
 .mic-button {
     position: absolute;
     right: 10px;
@@ -90,7 +91,33 @@ form {
     cursor: pointer;
 }
 
-.fa{
+.fa {
     position: relative;
     right: 1.6rem; 
+}
+
+/* Loading spinner styles */
+.loading {
+    display: none;
+    text-align: center;
+    margin-top: 20px;
+}
+
+.loading span {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin: 0 2px;
+    border-radius: 50%;
+    background: #007bff;
+    animation: blink 1.4s infinite both;
+}
+
+@keyframes blink {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
 }

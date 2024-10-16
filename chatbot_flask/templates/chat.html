@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat with Flask</title>
+    <title>JusticeAIbot</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <script>
@@ -44,23 +44,41 @@
         }
 
         // Call scrollToBottom when the page loads
-        window.onload = scrollToBottom;
+        window.onload = function() {
+            scrollToBottom();
+            // Hide loading spinner on page load
+            document.getElementById('loading').style.display = 'none';
+        };
+
+        // Show loading spinner when the form is submitted
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        // Handle form submit event
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('chat-form').addEventListener('submit', function() {
+                showLoading();
+            });
+        });
     </script>
 </head>
 <body>
     <div class="chat-container">
-        <h2>Chatbot</h2>
+        <h2>Justicebot</h2>
         <div id="chat-box">
             {% for msg in chat_history %}
                 <div class="{{ msg.type }}">{{ msg.text }}</div>
             {% endfor %}
         </div>
         <form id="chat-form" method="POST">
-            <div></div>
             <input type="text" id="query" name="query" placeholder="Enter your query here..." autocomplete="on">
             <i class="fa fa-microphone" style="font-size:24px" onclick="handleVoiceInput()"></i>
             <button type="submit">Send</button>
         </form>
+        <div class="loading" id="loading">
+            <span></span><span></span><span></span>
+        </div>
     </div>
 </body>
 </html>
